@@ -28,7 +28,7 @@ public class MainActivity2 extends AppCompatActivity {
     static int rx,ry,w;// 정사각형 오른쪽 위 좌표와 길이
 
     MyGrapicView myGrapicView;
-
+//
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {// 이 메서드는 화면의 포커스가 변경될 떄 호출된다.
         // hasFocus 매개변수는 화면이 포커스를 얻었는지 또는 잃었는지 여부를 나타내는 부울 값이다.
