@@ -33,14 +33,20 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.android.gms.tasks.Task;
 import com.google.android.libraries.places.api.Places;
 import com.google.android.libraries.places.api.model.Place;
+import com.google.android.libraries.places.api.model.PlaceLikelihood;
 import com.google.android.libraries.places.api.model.TypeFilter;
 import com.google.android.libraries.places.api.net.FetchPlaceRequest;
+import com.google.android.libraries.places.api.net.FindCurrentPlaceRequest;
+import com.google.android.libraries.places.api.net.FindCurrentPlaceResponse;
 import com.google.android.libraries.places.api.net.PlacesClient;
 import com.google.android.libraries.places.widget.Autocomplete;
 import com.google.android.libraries.places.widget.AutocompleteSupportFragment;
@@ -56,10 +62,10 @@ import java.util.Date;
 import java.util.List;
 
 
-public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, SensorEventListener{
+public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, SensorEventListener {
 
-    double currentLat,currentLog,currentTime;
-    double lastLat,lastLog,lastTime;
+    double currentLat, currentLog, currentTime;
+    double lastLat, lastLog, lastTime;
     PolylineOptions polylineOptions;
 
     double dialogLatitude;
@@ -69,7 +75,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     SupportMapFragment mapFragment;
     LocationManager locationManager;
 
-    Button btnZoomIn, btnZoomOut,btnMapType,btnStart;
+    Button btnZoomIn, btnZoomOut, btnMapType, btnStart;
     ArrayList<LatLng> arrayList;
 
     int mapType = GoogleMap.MAP_TYPE_SATELLITE;
@@ -77,16 +83,16 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     boolean sw = false;
 
     TextView textView;
-    int currentSteps=0;
+    int currentSteps = 0;
     Sensor stepCountSensor;
     SensorManager sensorManager;
 
-    private void showMapDialog(){
+    private void showMapDialog() {
         AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(MainActivity.this);
         dialogBuilder.setTitle("검색한 위치");
         dialogBuilder.setIcon(R.drawable.map_icon);
-        dialogBuilder.setPositiveButton("확인",null);
-        View dialogView = getLayoutInflater().inflate(R.layout.mini_map,null);
+        dialogBuilder.setPositiveButton("확인", null);
+        View dialogView = getLayoutInflater().inflate(R.layout.mini_map, null);
 
         dialogBuilder.setView(dialogView);
 
@@ -99,9 +105,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             public void onMapReady(@NonNull GoogleMap googleMap) {
                 // 구글맵 객체를 가져와서 필요한 처리를 수행한다.
                 googleMap.setMapType(googleMap.MAP_TYPE_NORMAL);
-                LatLng location = new LatLng(dialogLatitude,dialogLongitude);
+                LatLng location = new LatLng(dialogLatitude, dialogLongitude);
                 googleMap.addMarker(new MarkerOptions().position(location));
-                googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(location,15));
+                googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(location, 15));
             }
         });
         AlertDialog dialog = dialogBuilder.create();
@@ -124,8 +130,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         textView = (TextView) findViewById(R.id.textView);
 
         // 만보계 활동 퍼미션 체크
-        if(ContextCompat.checkSelfPermission(this,Manifest.permission.ACTIVITY_RECOGNITION)==PackageManager.PERMISSION_DENIED){
-            requestPermissions(new String[]{Manifest.permission.ACTIVITY_RECOGNITION},0);
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_DENIED) {
+            requestPermissions(new String[]{Manifest.permission.ACTIVITY_RECOGNITION}, 0);
         }
 
         // 걸음 센서 연결
@@ -136,8 +142,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         stepCountSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR);
 
         // 디바이스에 걸음 센서의 존재 여부 체크
-        if(stepCountSensor == null) Toast.makeText(this, "No Step Sensor", Toast.LENGTH_SHORT).show();
-
+        if (stepCountSensor == null)
+            Toast.makeText(this, "No Step Sensor", Toast.LENGTH_SHORT).show();
 
 
         //Location 객체는 android 기기의 위치 서비스에 대한 액세스를 제공한다
@@ -147,29 +153,29 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         //이 람다 함수는 권한 요청의 결과를 처리한다.
         //result 매개변수를 통해 사용자의 응답과 허용 여부를 확일할 수 있다.
         //Manifest.permission.ACCESS_FINE_LOCATION과 Manifest.permission.ACCESS_COARSE_LOCATION 권한에 대한 사용자의 응답을 확인한다.
-        ActivityResultLauncher<String[]> locationPermisstionRequest = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(),result -> {
+        ActivityResultLauncher<String[]> locationPermisstionRequest = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
             //result : 이 변수는 권한 요청 결과를 나타낸다. 권한 요청의 결과는 사용자가 권한을 부여하거나 거부한 경우에 대한 정보를 포함하고 있다.
 
-            Boolean fineLocationGranted = result.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION,false);
+            Boolean fineLocationGranted = result.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false);
             Boolean coarseLocationGranted = result.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false);
 
-            if(fineLocationGranted!=null&&fineLocationGranted){
-                Toast.makeText(getApplicationContext(),"자세한 위치권한 허용됨.",Toast.LENGTH_SHORT).show();
-            }else if(coarseLocationGranted!=null&&coarseLocationGranted){
-                Toast.makeText(getApplicationContext(),"대략적 위치 권한 허용됨.",Toast.LENGTH_SHORT).show();
-            }else{
-                Toast.makeText(getApplicationContext(),"권한 없음",Toast.LENGTH_SHORT).show();
+            if (fineLocationGranted != null && fineLocationGranted) {
+                Toast.makeText(getApplicationContext(), "자세한 위치권한 허용됨.", Toast.LENGTH_SHORT).show();
+            } else if (coarseLocationGranted != null && coarseLocationGranted) {
+                Toast.makeText(getApplicationContext(), "대략적 위치 권한 허용됨.", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(getApplicationContext(), "권한 없음", Toast.LENGTH_SHORT).show();
             }
         });
 
         // 권한을 확인 받았으면 다음부터는 구너한 요청을 하지 않는다.
-        if(ContextCompat.checkSelfPermission(getApplicationContext(),Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED&&
-                ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_COARSE_LOCATION)!=PackageManager.PERMISSION_GRANTED){
+        if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             locationPermisstionRequest.launch(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION});
         }
 
 
-        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,1000,1,listener);
+        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1, listener);
 
         mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
@@ -186,12 +192,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
 
         //필요한 설정을 수행한다.
-        autocompleteSupportFragment.setPlaceFields(Arrays.asList(Place.Field.ID,Place.Field.NAME,Place.Field.LAT_LNG));
+        autocompleteSupportFragment.setPlaceFields(Arrays.asList(Place.Field.ID, Place.Field.NAME, Place.Field.LAT_LNG));
         autocompleteSupportFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
             public void onError(@NonNull Status status) {
 
-                Log.d("TAGE",status.toString());
+                Log.d("TAGE", status.toString());
             }
 
             @Override
@@ -226,11 +232,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         btnMapType.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(mapType==GoogleMap.MAP_TYPE_SATELLITE){
+                if (mapType == GoogleMap.MAP_TYPE_SATELLITE) {
                     gMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
                     mapType = GoogleMap.MAP_TYPE_NORMAL;
                     btnMapType.setText("위성");
-                }else if(mapType==GoogleMap.MAP_TYPE_NORMAL){
+                } else if (mapType == GoogleMap.MAP_TYPE_NORMAL) {
                     gMap.setMapType(GoogleMap.MAP_TYPE_SATELLITE);
                     mapType = GoogleMap.MAP_TYPE_SATELLITE;
                     btnMapType.setText("일반");
@@ -240,16 +246,16 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         btnStart.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(sw){
-                    sw=false;
+                if (sw) {
+                    sw = false;
                     btnStart.setText("시작");
-                }else{
+                } else {
                     sw = true;
                     arrayList.clear();
                     gMap.clear();
                     btnStart.setText("종료");
-                    currentSteps=0;
-                    textView.setText(String.valueOf(currentSteps)+" 걸음");
+                    currentSteps = 0;
+                    textView.setText(String.valueOf(currentSteps) + " 걸음");
                 }
             }
         });
@@ -263,11 +269,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         gMap = googleMap;
         gMap.setMapType(googleMap.MAP_TYPE_SATELLITE);
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            Toast.makeText(getApplicationContext(),"위치정보를 가져오지 못함",Toast.LENGTH_SHORT).show();
+            Toast.makeText(getApplicationContext(), "위치정보를 가져오지 못함", Toast.LENGTH_SHORT).show();
             return;
         }
         gMap.setMyLocationEnabled(true);
-        gMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(35.94471,126.6828) ,18));
+        gMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(35.94471, 126.6828), 18));
     }
 
     final LocationListener listener = new LocationListener() {
@@ -276,19 +282,21 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             String provider = location.getProvider();
             Date date = new Date();
             SimpleDateFormat full_sdf = new SimpleDateFormat("yyyy-MM-dd, hh:mm:ss a");
-            Log.d("DATE",full_sdf.format(date).toString());
+            Log.d("DATE", full_sdf.format(date).toString());
             currentLat = location.getLatitude();
             currentLog = location.getLongitude();
             currentTime = System.currentTimeMillis();
 
-            gMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(currentLat,currentLog),18));
+            showNearbyRestaurants(new LatLng(currentLat,currentLog));
+            gMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(currentLat, currentLog), 18));
 
-            if(sw){
-                double nowSpeed = distance(lastLat,lastLog,currentLat,currentLog);
-                double timeDiff = (currentTime-lastTime)/1000;
-                double speedMs = nowSpeed/timeDiff;
 
-                LatLng latLng = new LatLng(currentLat,currentLog);
+            if (sw) {
+                double nowSpeed = distance(lastLat, lastLog, currentLat, currentLog);
+                double timeDiff = (currentTime - lastTime) / 1000;
+                double speedMs = nowSpeed / timeDiff;
+
+                LatLng latLng = new LatLng(currentLat, currentLog);
 
                 polylineOptions = new PolylineOptions();
                 polylineOptions.color(Color.RED);
@@ -333,7 +341,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         return (rad * 180 / Math.PI);
     }
 
-    public void onStart(){
+    public void onStart() {
         super.onStart();
         // 센서 속도 결정
         // * 옵션
@@ -341,15 +349,15 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         // -SENSOR_DELAY_UI : 6.000초 딜레이
         // -SENSOR_DELAY_GAME : 20.000초 딜레이
         // -SENSOR_DELAY_FASTEST : 딜레이
-        sensorManager.registerListener(this,stepCountSensor,SensorManager.SENSOR_DELAY_FASTEST);
+        sensorManager.registerListener(this, stepCountSensor, SensorManager.SENSOR_DELAY_FASTEST);
     }
 
     @Override
     public void onSensorChanged(SensorEvent event) {
-        if(event.sensor.getType()==Sensor.TYPE_STEP_DETECTOR){
-            if(event.values[0]==1.0f){
+        if (event.sensor.getType() == Sensor.TYPE_STEP_DETECTOR) {
+            if (event.values[0] == 1.0f) {
                 currentSteps++;
-                textView.setText(String.valueOf(currentSteps)+" 걸음");
+                textView.setText(String.valueOf(currentSteps) + " 걸음");
             }
         }
     }
@@ -357,5 +365,46 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
+    }
+
+    private void showNearbyRestaurants(LatLng latLng) {
+        // Places API 클라이언트 초기화
+        PlacesClient placesClient = Places.createClient(this);
+
+        // 요청 파라미터 설정
+        List<Place.Field> placeFields = Arrays.asList(Place.Field.NAME, Place.Field.LAT_LNG, Place.Field.TYPES);
+
+        // 주변 카페 검색 요청
+        FindCurrentPlaceRequest request = FindCurrentPlaceRequest.newInstance(placeFields);
+
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // 권한 체크 코드
+            return;
+        }
+        Task<FindCurrentPlaceResponse> placeResponseTask = placesClient.findCurrentPlace(request);
+        placeResponseTask.addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                FindCurrentPlaceResponse response = task.getResult();
+                for (PlaceLikelihood placeLikelihood : response.getPlaceLikelihoods()) {
+
+                    Place place = placeLikelihood.getPlace();
+                    LatLng placeLatLng = place.getLatLng();
+                    List<Place.Type> placeTypes = place.getTypes();
+                    if (placeLatLng != null && placeTypes.contains(Place.Type.CAFE)) { // 카페인 경우에만 마커 표시
+                        Marker marker = gMap.addMarker(new MarkerOptions()
+                                .position(placeLatLng)
+                                .title(place.getName())
+                                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+                        // 마커 클릭 리스너 설정 등 추가적인 처리 가능
+                    }
+                }
+            } else {
+                Exception exception = task.getException();
+                if (exception != null) {
+                    Log.e("TAG", "주변 카페 검색 실패: " + exception.getMessage());
+                }
+            }
+        });
     }
 }
