@@ -14,6 +14,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -21,6 +25,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.common.api.Status;
@@ -50,7 +55,8 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements OnMapReadyCallback {
+
+public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, SensorEventListener{
 
     double currentLat,currentLog,currentTime;
     double lastLat,lastLog,lastTime;
@@ -69,6 +75,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     int mapType = GoogleMap.MAP_TYPE_SATELLITE;
 
     boolean sw = false;
+
+    TextView textView;
+    int currentSteps=0;
+    Sensor stepCountSensor;
+    SensorManager sensorManager;
 
     private void showMapDialog(){
         AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(MainActivity.this);
@@ -109,6 +120,25 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         btnZoomOut = (Button) findViewById(R.id.button2);
         btnMapType = (Button) findViewById(R.id.button3);
         btnStart = (Button) findViewById(R.id.button4);
+
+        textView = (TextView) findViewById(R.id.textView);
+
+        // 만보계 활동 퍼미션 체크
+        if(ContextCompat.checkSelfPermission(this,Manifest.permission.ACTIVITY_RECOGNITION)==PackageManager.PERMISSION_DENIED){
+            requestPermissions(new String[]{Manifest.permission.ACTIVITY_RECOGNITION},0);
+        }
+
+        // 걸음 센서 연결
+        // * 옵션
+        // -TYPE_STEP_DETECTOR : 리턴 값이 무조건 1. 앱이 종료되면 다시 0부터 시작
+        // -TYPE_STEP_COUNTER : 앱 종료와 상관이 없이 계속 기존의 값을 가지고 있다가 1씩 증가한 값을 리턴
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        stepCountSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR);
+
+        // 디바이스에 걸음 센서의 존재 여부 체크
+        if(stepCountSensor == null) Toast.makeText(this, "No Step Sensor", Toast.LENGTH_SHORT).show();
+
+
 
         //Location 객체는 android 기기의 위치 서비스에 대한 액세스를 제공한다
         //Location 객체를 사용하여 위치 정보를 가져오거나, 위치 기반 알림을 설정하거나, 위치 기반 서비스를 사용하도록 설정할 수 있다.
@@ -218,6 +248,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     arrayList.clear();
                     gMap.clear();
                     btnStart.setText("종료");
+                    currentSteps=0;
+                    textView.setText(String.valueOf(currentSteps)+" 걸음");
                 }
             }
         });
@@ -299,5 +331,31 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     // This function converts radians to decimal degrees
     private static double rad2deg(double rad) {
         return (rad * 180 / Math.PI);
+    }
+
+    public void onStart(){
+        super.onStart();
+        // 센서 속도 결정
+        // * 옵션
+        // -SENSOR_DELAY_NORMAL : 20.000초 딜레이
+        // -SENSOR_DELAY_UI : 6.000초 딜레이
+        // -SENSOR_DELAY_GAME : 20.000초 딜레이
+        // -SENSOR_DELAY_FASTEST : 딜레이
+        sensorManager.registerListener(this,stepCountSensor,SensorManager.SENSOR_DELAY_FASTEST);
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        if(event.sensor.getType()==Sensor.TYPE_STEP_DETECTOR){
+            if(event.values[0]==1.0f){
+                currentSteps++;
+                textView.setText(String.valueOf(currentSteps)+" 걸음");
+            }
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
     }
 }
