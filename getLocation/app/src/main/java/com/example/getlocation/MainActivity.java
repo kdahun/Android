@@ -31,6 +31,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -61,6 +62,7 @@ import com.google.android.libraries.places.widget.model.AutocompleteActivityMode
 
 import com.google.firebase.firestore.GeoPoint;
 
+import java.lang.reflect.Array;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -104,6 +106,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     SupportMapFragment miniMapFragment;
     SupportMapFragment miniMapFragment2;
+    SeekBar seekBar;
 
     private void showMapDialog() {
         AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(MainActivity.this);
@@ -152,6 +155,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         dialogBuilder.setView(dialogView);
 
+        SeekBar seekBar = dialogView.findViewById(R.id.seekBar);
+
+        seekBar.setMax(getDBLatLng.size());
+
+        seekBar.setMax(getDBLatLng.size());
         miniMapFragment2 = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.mini_map);
 
         // SupportMapFragment가 준비되었을 때의 콜백을 설정
@@ -161,14 +169,41 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 // 구글맵 객체를 가져와서 필요한 처리를 수행
                 googleMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
 
-                googleMap.addMarker(new MarkerOptions().position(getDBLatLng.get(getDBLatLng.size()-1)));
-                googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(getDBLatLng.get(getDBLatLng.size()-1),18));
-                polylineOptions = new PolylineOptions();
-                polylineOptions.color(Color.RED);
-                polylineOptions.width(5);
+                seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                    @Override
+                    public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                        if(progress==0){
+                            googleMap.clear();
+                        }else{
+                            polylineOptions = new PolylineOptions();
+                            polylineOptions.color(Color.RED);
+                            polylineOptions.width(5);
 
-                polylineOptions.addAll(getDBLatLng);
-                googleMap.addPolyline(polylineOptions);
+                            List<LatLng> subList = getDBLatLng.subList(0,progress);
+                            polylineOptions.addAll(subList);
+
+                            googleMap.clear();
+                            googleMap.addPolyline(polylineOptions);
+                            if (!subList.isEmpty()) {
+                                // subList가 비어있지 않은 경우, 마지막 위치로 카메라 이동
+                                LatLng lastPosition = subList.get(subList.size() - 1);
+                                googleMap.addMarker(new MarkerOptions().position(lastPosition));
+                                googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(lastPosition, 18));
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onStartTrackingTouch(SeekBar seekBar) {
+
+                    }
+
+                    @Override
+                    public void onStopTrackingTouch(SeekBar seekBar) {
+
+                    }
+                });
+
             }
         });
 
@@ -246,6 +281,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         registerForContextMenu(menu_button);
 
         textView = (TextView) findViewById(R.id.textView);
+
 
         myHelper = new myDBHelper(this,"latlog",null,1);
 
