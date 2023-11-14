@@ -11,6 +11,7 @@ import androidx.core.content.MimeTypeFilter;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -101,6 +102,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     ArrayList<LatLng> getDBLatLng;
 
+    SupportMapFragment miniMapFragment;
+    SupportMapFragment miniMapFragment2;
+
     private void showMapDialog() {
         AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(MainActivity.this);
         dialogBuilder.setTitle("검색한 위치");
@@ -110,21 +114,75 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         dialogBuilder.setView(dialogView);
 
-        //대화 상자에 있는 SupportMapFragment를 찾는다.
-        SupportMapFragment miniMapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.mini_map);
+        miniMapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.mini_map);
 
-        // SupportMapFragment가 준비되었을 때의 콜백을 설정한다.
+        // SupportMapFragment가 준비되었을 때의 콜백을 설정
         miniMapFragment.getMapAsync(new OnMapReadyCallback() {
             @Override
             public void onMapReady(@NonNull GoogleMap googleMap) {
-                // 구글맵 객체를 가져와서 필요한 처리를 수행한다.
-                googleMap.setMapType(googleMap.MAP_TYPE_NORMAL);
+                // 구글맵 객체를 가져와서 필요한 처리를 수행
+                googleMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
                 LatLng location = new LatLng(dialogLatitude, dialogLongitude);
                 googleMap.addMarker(new MarkerOptions().position(location));
                 googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(location, 15));
             }
         });
+
         AlertDialog dialog = dialogBuilder.create();
+        dialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+            @Override
+            public void onDismiss(DialogInterface dialog) {
+                // Dialog 종료 시 SupportMapFragment 초기화
+                if (miniMapFragment != null) {
+                    getSupportFragmentManager().beginTransaction().remove(miniMapFragment).commit();
+                    miniMapFragment = null;
+                }
+            }
+        });
+
+        dialog.show();
+    }
+
+    private void showMapDialog2() {
+        AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(MainActivity.this);
+        dialogBuilder.setTitle("타임라인");
+        dialogBuilder.setIcon(R.drawable.map_icon);
+        dialogBuilder.setPositiveButton("확인", null);
+        View dialogView = getLayoutInflater().inflate(R.layout.time_line_map, null);
+
+        dialogBuilder.setView(dialogView);
+
+        miniMapFragment2 = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.mini_map);
+
+        // SupportMapFragment가 준비되었을 때의 콜백을 설정
+        miniMapFragment2.getMapAsync(new OnMapReadyCallback() {
+            @Override
+            public void onMapReady(@NonNull GoogleMap googleMap) {
+                // 구글맵 객체를 가져와서 필요한 처리를 수행
+                googleMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+
+                googleMap.addMarker(new MarkerOptions().position(getDBLatLng.get(getDBLatLng.size()-1)));
+                googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(getDBLatLng.get(getDBLatLng.size()-1),18));
+                polylineOptions = new PolylineOptions();
+                polylineOptions.color(Color.RED);
+                polylineOptions.width(5);
+
+                polylineOptions.addAll(getDBLatLng);
+                googleMap.addPolyline(polylineOptions);
+            }
+        });
+
+        AlertDialog dialog = dialogBuilder.create();
+        dialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+            @Override
+            public void onDismiss(DialogInterface dialog) {
+                // Dialog 종료 시 SupportMapFragment 초기화
+                if (miniMapFragment2 != null) {
+                    getSupportFragmentManager().beginTransaction().remove(miniMapFragment2).commit();
+                    miniMapFragment2 = null;
+                }
+            }
+        });
 
         dialog.show();
     }
@@ -166,6 +224,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         for(int i=0;i<getDBLatLng.size();i++){
             Log.d("timeLineGet1",getDBLatLng.get(i).toString());
         }
+        showMapDialog2();
         return super.onContextItemSelected(item);
     }
 
