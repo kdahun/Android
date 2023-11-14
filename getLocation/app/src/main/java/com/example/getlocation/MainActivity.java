@@ -13,6 +13,8 @@ import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Color;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -23,6 +25,9 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.ContextMenu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -87,6 +92,15 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     Sensor stepCountSensor;
     SensorManager sensorManager;
 
+    Button menu_button;
+
+    myDBHelper myHelper;
+    SQLiteDatabase sqlDB;
+
+    ArrayList<String> menuList;
+
+    ArrayList<LatLng> getDBLatLng;
+
     private void showMapDialog() {
         AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(MainActivity.this);
         dialogBuilder.setTitle("검색한 위치");
@@ -116,18 +130,73 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     @Override
+    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
+        super.onCreateContextMenu(menu, v, menuInfo);
+        MenuInflater mInflater = getMenuInflater();
+        if(v == menu_button){
+            menu.clear();
+            int count = 0;
+            sqlDB = myHelper.getReadableDatabase();
+            String sql = "select distinct date from latlog";
+            Cursor cursor = sqlDB.rawQuery(sql,null);
+            while(cursor.moveToNext()){
+                menuList.clear();
+                menuList.add(cursor.getString(0));
+                menu.add(0,count,0,cursor.getString(0));
+            }
+            sqlDB.close();
+            mInflater.inflate(R.menu.menu1,menu);
+        }
+    }
+
+    @Override
+    public boolean onContextItemSelected(@NonNull MenuItem item) {
+
+        getDBLatLng.clear();
+
+        sqlDB = myHelper.getReadableDatabase();
+        String sql = "select * from latlog where date='"+item.getTitle()+"'";
+        Cursor cursor = sqlDB.rawQuery(sql,null);
+        while(cursor.moveToNext()){
+            Log.d("timeLineGet",cursor.getInt(0)+cursor.getString(1)+cursor.getDouble(2)+cursor.getDouble(3));
+            getDBLatLng.add(new LatLng(cursor.getDouble(2),cursor.getDouble(3)));
+        }
+        sqlDB.close();
+
+        for(int i=0;i<getDBLatLng.size();i++){
+            Log.d("timeLineGet1",getDBLatLng.get(i).toString());
+        }
+        return super.onContextItemSelected(item);
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         arrayList = new ArrayList<LatLng>();
+        menuList = new ArrayList<String>();
+        getDBLatLng = new ArrayList<LatLng>();
 
         btnZoomIn = (Button) findViewById(R.id.button);
         btnZoomOut = (Button) findViewById(R.id.button2);
         btnMapType = (Button) findViewById(R.id.button3);
         btnStart = (Button) findViewById(R.id.button4);
 
+        menu_button= (Button) findViewById(R.id.button5);
+        registerForContextMenu(menu_button);
+
         textView = (TextView) findViewById(R.id.textView);
+
+        myHelper = new myDBHelper(this,"latlog",null,1);
+
+        sqlDB = myHelper.getReadableDatabase();
+        String sql = "select distinct date from latlog";
+        Cursor cursor = sqlDB.rawQuery(sql,null);
+        while(cursor.moveToNext()){
+           Log.d("DBItem",cursor.getString(0));
+        }
+        sqlDB.close();
 
         // 만보계 활동 퍼미션 체크
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_DENIED) {
@@ -281,7 +350,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         public void onLocationChanged(@NonNull Location location) {
             String provider = location.getProvider();
             Date date = new Date();
-            SimpleDateFormat full_sdf = new SimpleDateFormat("yyyy-MM-dd, hh:mm:ss a");
+            SimpleDateFormat full_sdf = new SimpleDateFormat("yyyy-MM-dd");
             Log.d("DATE", full_sdf.format(date).toString());
             currentLat = location.getLatitude();
             currentLog = location.getLongitude();
@@ -291,7 +360,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             gMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(currentLat, currentLog), 18));
 
 
+
+
             if (sw) {
+                // DB에 저장
+                sqlDB = myHelper.getWritableDatabase();
+                sqlDB.execSQL("insert into latlog (date,lat,log) values('"+full_sdf.format(date)+"','"+currentLat+"','"+currentLog+"')");
+                sqlDB.close();
+
                 double nowSpeed = distance(lastLat, lastLog, currentLat, currentLog);
                 double timeDiff = (currentTime - lastTime) / 1000;
                 double speedMs = nowSpeed / timeDiff;
@@ -407,4 +483,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         });
     }
+
+
 }
