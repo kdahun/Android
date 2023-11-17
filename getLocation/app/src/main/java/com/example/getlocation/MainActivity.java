@@ -10,6 +10,7 @@ import androidx.core.content.ContextCompat;
 import androidx.core.content.MimeTypeFilter;
 
 import android.Manifest;
+import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -31,6 +32,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ListView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -106,20 +108,27 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     SupportMapFragment miniMapFragment;
     SupportMapFragment miniMapFragment2;
-    SeekBar seekBar;
+
+    ListView listView;
 
     private void showMapDialog() {
+        // 다이얼 로그 생성
         AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(MainActivity.this);
         dialogBuilder.setTitle("검색한 위치");
         dialogBuilder.setIcon(R.drawable.map_icon);
         dialogBuilder.setPositiveButton("확인", null);
+
+        // R.layout.mini_map은 XML 파일로 정의된 사용자 지정 레이아웃을 인플레이트하는 역할
         View dialogView = getLayoutInflater().inflate(R.layout.mini_map, null);
 
+        // dialogBuilder 객체는 AlertDialog를 생성하는 데 사용되는 코드이고, dialogView를 다이얼로그에 추가한다.
         dialogBuilder.setView(dialogView);
 
+        // R.id.mini_map은 사용자 지정 레이아웃 안에서 정의된 SupportMapFragment를 찾기 위한 ID
         miniMapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.mini_map);
 
         // SupportMapFragment가 준비되었을 때의 콜백을 설정
+        // getMapAsync() 메서드는 안드로이드에서 구글 맵을 비동기적으로 가져오는데 사용된다.
         miniMapFragment.getMapAsync(new OnMapReadyCallback() {
             @Override
             public void onMapReady(@NonNull GoogleMap googleMap) {
@@ -150,7 +159,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(MainActivity.this);
         dialogBuilder.setTitle("타임라인");
         dialogBuilder.setIcon(R.drawable.map_icon);
-        dialogBuilder.setPositiveButton("확인", null);
+        dialogBuilder.setNegativeButton("좌표 확인", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                showMapDialog3();
+            }
+        });
+        dialogBuilder.setPositiveButton("닫기",null);
         View dialogView = getLayoutInflater().inflate(R.layout.time_line_map, null);
 
         dialogBuilder.setView(dialogView);
@@ -169,11 +184,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 // 구글맵 객체를 가져와서 필요한 처리를 수행
                 googleMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
 
+                googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(getDBLatLng.get(0), 18));
                 seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
                     @Override
                     public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                         if(progress==0){
                             googleMap.clear();
+
+
                         }else{
                             polylineOptions = new PolylineOptions();
                             polylineOptions.color(Color.RED);
@@ -221,6 +239,23 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         dialog.show();
     }
+
+    private void showMapDialog3() {
+        Dialog dialog = new Dialog(MainActivity.this);
+        dialog.setContentView(R.layout.listview);
+
+        ListView listView = dialog.findViewById(R.id.listview);
+        ListViewAdapter adapter = new ListViewAdapter();
+        listView.setAdapter(adapter);
+
+        for (int i = 0; i < getDBLatLng.size(); i++) {
+            adapter.addItem("2023", getDBLatLng.get(i).latitude, getDBLatLng.get(i).longitude);
+        }
+
+        dialog.setTitle("타임라인 좌표");
+        dialog.show();
+    }
+
 
     @Override
     public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
@@ -338,8 +373,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             locationPermisstionRequest.launch(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION});
         }
 
+        //LocationManager.GPS_PROVIDER : 위치 정보를 제공하는 프로바이더로 GPS를 사용한다. 이것은 GPS를 통해 위치를 가져온다는 것을 의미한다.
+        // minTimeMs : 위치 업데이트를 받기 위한 시간 간격
+        // minDistanceM : 위치 업데이트를 받기 위한 거리 간격
+        // listener : 위치 변경을 감지하고 이벤트를 처리하기 위한 리스너 객체. 이 리스너는 위치가 업데이트될 때 마다 호출된다.
+        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 3000, 1, listener);
 
-        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1, listener);
 
         mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
@@ -451,7 +490,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             currentLog = location.getLongitude();
             currentTime = System.currentTimeMillis();
 
-            showNearbyRestaurants(new LatLng(currentLat,currentLog));
+            //showNearbyRestaurants(new LatLng(currentLat,currentLog));
             gMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(currentLat, currentLog), 18));
 
 
@@ -538,46 +577,46 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     }
 
-    private void showNearbyRestaurants(LatLng latLng) {
-        // Places API 클라이언트 초기화
-        PlacesClient placesClient = Places.createClient(this);
-
-        // 요청 파라미터 설정
-        List<Place.Field> placeFields = Arrays.asList(Place.Field.NAME, Place.Field.LAT_LNG, Place.Field.TYPES);
-
-        // 주변 카페 검색 요청
-        FindCurrentPlaceRequest request = FindCurrentPlaceRequest.newInstance(placeFields);
-
-
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // 권한 체크 코드
-            return;
-        }
-        Task<FindCurrentPlaceResponse> placeResponseTask = placesClient.findCurrentPlace(request);
-        placeResponseTask.addOnCompleteListener(task -> {
-            if (task.isSuccessful()) {
-                FindCurrentPlaceResponse response = task.getResult();
-                for (PlaceLikelihood placeLikelihood : response.getPlaceLikelihoods()) {
-
-                    Place place = placeLikelihood.getPlace();
-                    LatLng placeLatLng = place.getLatLng();
-                    List<Place.Type> placeTypes = place.getTypes();
-                    if (placeLatLng != null && placeTypes.contains(Place.Type.CAFE)) { // 카페인 경우에만 마커 표시
-                        Marker marker = gMap.addMarker(new MarkerOptions()
-                                .position(placeLatLng)
-                                .title(place.getName())
-                                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
-                        // 마커 클릭 리스너 설정 등 추가적인 처리 가능
-                    }
-                }
-            } else {
-                Exception exception = task.getException();
-                if (exception != null) {
-                    Log.e("TAG", "주변 카페 검색 실패: " + exception.getMessage());
-                }
-            }
-        });
-    }
+//    private void showNearbyRestaurants(LatLng latLng) {
+//        // Places API 클라이언트 초기화
+//        PlacesClient placesClient = Places.createClient(this);
+//
+//        // 요청 파라미터 설정
+//        List<Place.Field> placeFields = Arrays.asList(Place.Field.NAME, Place.Field.LAT_LNG, Place.Field.TYPES);
+//
+//        // 주변 카페 검색 요청
+//        FindCurrentPlaceRequest request = FindCurrentPlaceRequest.newInstance(placeFields);
+//
+//
+//        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+//            // 권한 체크 코드
+//            return;
+//        }
+//        Task<FindCurrentPlaceResponse> placeResponseTask = placesClient.findCurrentPlace(request);
+//        placeResponseTask.addOnCompleteListener(task -> {
+//            if (task.isSuccessful()) {
+//                FindCurrentPlaceResponse response = task.getResult();
+//                for (PlaceLikelihood placeLikelihood : response.getPlaceLikelihoods()) {
+//
+//                    Place place = placeLikelihood.getPlace();
+//                    LatLng placeLatLng = place.getLatLng();
+//                    List<Place.Type> placeTypes = place.getTypes();
+//                    if (placeLatLng != null && placeTypes.contains(Place.Type.CAFE)) { // 카페인 경우에만 마커 표시
+//                        Marker marker = gMap.addMarker(new MarkerOptions()
+//                                .position(placeLatLng)
+//                                .title(place.getName())
+//                                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+//                        // 마커 클릭 리스너 설정 등 추가적인 처리 가능
+//                    }
+//                }
+//            } else {
+//                Exception exception = task.getException();
+//                if (exception != null) {
+//                    Log.e("TAG", "주변 카페 검색 실패: " + exception.getMessage());
+//                }
+//            }
+//        });
+//    }
 
 
 }
