@@ -111,6 +111,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     ListView listView;
 
+    String date;
+
     private void showMapDialog() {
         // 다이얼 로그 생성
         AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(MainActivity.this);
@@ -170,6 +172,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         dialogBuilder.setView(dialogView);
 
+        TextView distance = dialogView.findViewById(R.id.textView8);
+
         SeekBar seekBar = dialogView.findViewById(R.id.seekBar);
 
         seekBar.setMax(getDBLatLng.size());
@@ -181,6 +185,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         miniMapFragment2.getMapAsync(new OnMapReadyCallback() {
             @Override
             public void onMapReady(@NonNull GoogleMap googleMap) {
+
                 // 구글맵 객체를 가져와서 필요한 처리를 수행
                 googleMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
 
@@ -188,11 +193,17 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
                     @Override
                     public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                        double total_distance=0;
                         if(progress==0){
                             googleMap.clear();
-
+                            distance.setText("이동거리 : 0 km");
 
                         }else{
+                            for(int i=1;i<progress;i++)
+                                total_distance += distance(getDBLatLng.get(i - 1).latitude, getDBLatLng.get(i - 1).longitude, getDBLatLng.get(i).latitude, getDBLatLng.get(i).longitude);
+                            distance.setText("이동거리 : "+String.valueOf(total_distance)+" km");
+
+
                             polylineOptions = new PolylineOptions();
                             polylineOptions.color(Color.RED);
                             polylineOptions.width(5);
@@ -241,19 +252,44 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private void showMapDialog3() {
-        Dialog dialog = new Dialog(MainActivity.this);
-        dialog.setContentView(R.layout.listview);
+//        Dialog dialog = new Dialog(MainActivity.this);
+//        dialog.setContentView(R.layout.listview);
+//
+//
+//        ListView listView = dialog.findViewById(R.id.listview);
+//        ListViewAdapter adapter = new ListViewAdapter();
+//        listView.setAdapter(adapter);
+//
+//        for (int i = 0; i < getDBLatLng.size(); i++) {
+//            adapter.addItem("2023", getDBLatLng.get(i).latitude, getDBLatLng.get(i).longitude);
+//        }
+//
+//        dialog.setTitle("타임라인 좌표");
+//        dialog.show();
+        AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(MainActivity.this);
+        alertDialogBuilder.setTitle("타임라인 좌표");
 
-        ListView listView = dialog.findViewById(R.id.listview);
+        alertDialogBuilder.setIcon(R.drawable.map_icon);
+// 리스트뷰를 담기 위한 레이아웃 및 어댑터
+        View dialogView = getLayoutInflater().inflate(R.layout.listview, null);
+        ListView listView = dialogView.findViewById(R.id.listview);
         ListViewAdapter adapter = new ListViewAdapter();
         listView.setAdapter(adapter);
 
         for (int i = 0; i < getDBLatLng.size(); i++) {
-            adapter.addItem("2023", getDBLatLng.get(i).latitude, getDBLatLng.get(i).longitude);
+            adapter.addItem(date, getDBLatLng.get(i).latitude, getDBLatLng.get(i).longitude);
         }
 
-        dialog.setTitle("타임라인 좌표");
-        dialog.show();
+// Positive 버튼 추가
+        alertDialogBuilder.setPositiveButton("확인", null);
+
+// 리스트뷰를 다이얼로그에 설정
+        alertDialogBuilder.setView(dialogView);
+
+// AlertDialog 생성 후 보여주기
+        AlertDialog alertDialog = alertDialogBuilder.create();
+        alertDialog.show();
+
     }
 
 
@@ -286,6 +322,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         String sql = "select * from latlog where date='"+item.getTitle()+"'";
         Cursor cursor = sqlDB.rawQuery(sql,null);
         while(cursor.moveToNext()){
+            date = cursor.getString(1);
             Log.d("timeLineGet",cursor.getInt(0)+cursor.getString(1)+cursor.getDouble(2)+cursor.getDouble(3));
             getDBLatLng.add(new LatLng(cursor.getDouble(2),cursor.getDouble(3)));
         }
@@ -535,7 +572,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         dist = dist * 60 * 1.1515;
 
 
-        dist = dist * 1609.344;// 미터로 구하기
+        dist = dist * 1609.344;
+
+        dist/=1000.0;//km로 변환
 
         return (dist);
     }
